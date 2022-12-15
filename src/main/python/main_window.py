@@ -30,6 +30,7 @@ from unlocker import Unlocker
 from util import tr, EXAMPLE_KEYBOARDS, KeycodeDisplay, EXAMPLE_KEYBOARD_PREFIX
 from vial_device import VialKeyboard
 from editor.matrix_test import MatrixTest
+from editor.ec_editor import ECEditor
 
 import themes
 
@@ -51,7 +52,8 @@ class MainWindow(QMainWindow):
         themes.Theme.set_theme(self.get_theme())
 
         self.combobox_devices = QComboBox()
-        self.combobox_devices.currentIndexChanged.connect(self.on_device_selected)
+        self.combobox_devices.currentIndexChanged.connect(
+            self.on_device_selected)
 
         self.btn_refresh_devices = QToolButton()
         self.btn_refresh_devices.setToolButtonStyle(Qt.ToolButtonTextOnly)
@@ -74,11 +76,16 @@ class MainWindow(QMainWindow):
         self.qmk_settings = QmkSettings()
         self.matrix_tester = MatrixTest(self.layout_editor)
         self.rgb_configurator = RGBConfigurator()
+        self.ec_editor = ECEditor(self.layout_editor)
 
         self.editors = [(self.keymap_editor, "Keymap"), (self.layout_editor, "Layout"), (self.macro_recorder, "Macros"),
-                        (self.rgb_configurator, "Lighting"), (self.tap_dance, "Tap Dance"), (self.combos, "Combos"),
-                        (self.key_override, "Key Overrides"), (self.qmk_settings, "QMK Settings"),
-                        (self.matrix_tester, "Matrix tester"), (self.firmware_flasher, "Firmware updater")]
+                        (self.rgb_configurator, "Lighting"), (self.tap_dance,
+                                                              "Tap Dance"), (self.combos, "Combos"),
+                        (self.key_override,
+                         "Key Overrides"), (self.qmk_settings, "QMK Settings"),
+                        (self.matrix_tester, "Matrix tester"), (self.firmware_flasher,
+                                                                "Firmware updater"),
+                        (self.ec_editor, "EC Editor")]
 
         Unlocker.global_layout_editor = self.layout_editor
         Unlocker.global_main_window = self
@@ -117,7 +124,8 @@ class MainWindow(QMainWindow):
         self.autorefresh.devices_updated.connect(self.on_devices_updated)
 
         # cache for via definition files
-        self.cache_path = QStandardPaths.writableLocation(QStandardPaths.CacheLocation)
+        self.cache_path = QStandardPaths.writableLocation(
+            QStandardPaths.CacheLocation)
         if not os.path.exists(self.cache_path):
             os.makedirs(self.cache_path)
 
@@ -129,7 +137,8 @@ class MainWindow(QMainWindow):
                 self.autorefresh.load_via_stack(data)
             except JSONDecodeError as e:
                 # the saved file is invalid - just ignore this
-                logging.warning("Failed to parse stored via_keyboards.json: {}".format(e))
+                logging.warning(
+                    "Failed to parse stored via_keyboards.json: {}".format(e))
 
         # make sure initial state is valid
         self.on_click_refresh()
@@ -143,14 +152,17 @@ class MainWindow(QMainWindow):
         layout_load_act.setShortcut("Ctrl+O")
         layout_load_act.triggered.connect(self.on_layout_load)
 
-        layout_save_act = QAction(tr("MenuFile", "Save current layout..."), self)
+        layout_save_act = QAction(
+            tr("MenuFile", "Save current layout..."), self)
         layout_save_act.setShortcut("Ctrl+S")
         layout_save_act.triggered.connect(self.on_layout_save)
 
-        sideload_json_act = QAction(tr("MenuFile", "Sideload VIA JSON..."), self)
+        sideload_json_act = QAction(
+            tr("MenuFile", "Sideload VIA JSON..."), self)
         sideload_json_act.triggered.connect(self.on_sideload_json)
 
-        download_via_stack_act = QAction(tr("MenuFile", "Download VIA definitions"), self)
+        download_via_stack_act = QAction(
+            tr("MenuFile", "Download VIA definitions"), self)
         download_via_stack_act.triggered.connect(self.load_via_stack_json)
 
         load_dummy_act = QAction(tr("MenuFile", "Load dummy JSON..."), self)
@@ -179,7 +191,8 @@ class MainWindow(QMainWindow):
         keyboard_lock_act.setShortcut("Ctrl+L")
         keyboard_lock_act.triggered.connect(self.lock_keyboard)
 
-        keyboard_reset_act = QAction(tr("MenuSecurity", "Reboot to bootloader"), self)
+        keyboard_reset_act = QAction(
+            tr("MenuSecurity", "Reboot to bootloader"), self)
         keyboard_reset_act.setShortcut("Ctrl+B")
         keyboard_reset_act.triggered.connect(self.reboot_to_bootloader)
 
@@ -188,7 +201,8 @@ class MainWindow(QMainWindow):
         selected_keymap = self.settings.value("keymap")
         for idx, keymap in enumerate(KEYMAPS):
             act = QAction(tr("KeyboardLayout", keymap[0]), self)
-            act.triggered.connect(lambda checked, x=idx: self.change_keyboard_layout(x))
+            act.triggered.connect(
+                lambda checked, x=idx: self.change_keyboard_layout(x))
             act.setCheckable(True)
             if selected_keymap == keymap[0]:
                 self.change_keyboard_layout(idx)
@@ -211,7 +225,8 @@ class MainWindow(QMainWindow):
             selected_theme = self.get_theme()
             for name, _ in [("System", None)] + themes.themes:
                 act = QAction(tr("MenuTheme", name), self)
-                act.triggered.connect(lambda x,name=name: self.set_theme(name))
+                act.triggered.connect(
+                    lambda x, name=name: self.set_theme(name))
                 act.setCheckable(True)
                 act.setChecked(selected_theme == name)
                 theme_group.addAction(act)
@@ -237,6 +252,7 @@ class MainWindow(QMainWindow):
             with open(dialog.selectedFiles()[0], "rb") as inf:
                 data = inf.read()
             self.keymap_editor.restore_layout(data)
+            self.ec_editor.restore_layout(data)
             self.rebuild()
 
     def on_layout_save(self):
@@ -247,6 +263,7 @@ class MainWindow(QMainWindow):
         if dialog.exec_() == QDialog.Accepted:
             with open(dialog.selectedFiles()[0], "wb") as outf:
                 outf.write(self.keymap_editor.save_layout())
+                outf.write(self.ec_editor.save_layout())
 
     def on_click_refresh(self):
         self.autorefresh.update(quiet=False, hard=True)
@@ -258,7 +275,8 @@ class MainWindow(QMainWindow):
         for dev in devices:
             self.combobox_devices.addItem(dev.title())
             if self.autorefresh.current_device and dev.desc["path"] == self.autorefresh.current_device.desc["path"]:
-                self.combobox_devices.setCurrentIndex(self.combobox_devices.count() - 1)
+                self.combobox_devices.setCurrentIndex(
+                    self.combobox_devices.count() - 1)
 
         self.combobox_devices.blockSignals(False)
 
@@ -274,7 +292,8 @@ class MainWindow(QMainWindow):
 
     def on_device_selected(self):
         try:
-            self.autorefresh.select_device(self.combobox_devices.currentIndex())
+            self.autorefresh.select_device(
+                self.combobox_devices.currentIndex())
         except ProtocolError:
             QMessageBox.warning(self, "", "Unsupported protocol version!\n"
                                           "Please download latest Vial from https://get.vial.today/")
@@ -290,11 +309,13 @@ class MainWindow(QMainWindow):
 
     def rebuild(self):
         # don't show "Security" menu for bootloader mode, as the bootloader is inherently insecure
-        self.security_menu.menuAction().setVisible(isinstance(self.autorefresh.current_device, VialKeyboard))
+        self.security_menu.menuAction().setVisible(
+            isinstance(self.autorefresh.current_device, VialKeyboard))
 
         self.about_keyboard_act.setVisible(False)
         if isinstance(self.autorefresh.current_device, VialKeyboard):
-            self.about_keyboard_act.setText("About {}...".format(self.autorefresh.current_device.title()))
+            self.about_keyboard_act.setText("About {}...".format(
+                self.autorefresh.current_device.title()))
             self.about_keyboard_act.setVisible(True)
 
         # if unlock process was interrupted, we must finish it first
@@ -302,7 +323,7 @@ class MainWindow(QMainWindow):
             Unlocker.unlock(self.autorefresh.current_device.keyboard)
             self.autorefresh.current_device.keyboard.reload()
 
-        for e in [self.layout_editor, self.keymap_editor, self.firmware_flasher, self.macro_recorder,
+        for e in [self.layout_editor, self.keymap_editor, self.ec_editor, self.firmware_flasher, self.macro_recorder,
                   self.tap_dance, self.combos, self.key_override, self.qmk_settings, self.matrix_tester,
                   self.rgb_configurator]:
             e.rebuild(self.autorefresh.current_device)
@@ -386,7 +407,8 @@ class MainWindow(QMainWindow):
         themes.Theme.set_theme(theme)
         self.settings.setValue("theme", theme)
         msg = QMessageBox()
-        msg.setText(tr("MainWindow", "In order to fully apply the theme you should restart the application."))
+        msg.setText(
+            tr("MainWindow", "In order to fully apply the theme you should restart the application."))
         msg.exec_()
 
     def on_tab_changed(self, index):
